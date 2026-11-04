@@ -1,0 +1,5 @@
+name: ababsa_borel
+
+services:
+  app:
+    build: .
