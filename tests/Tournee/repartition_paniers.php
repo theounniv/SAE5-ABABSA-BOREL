@@ -45,3 +45,15 @@ verifier([
     3 => ['paniers' => 3, 'capacite' => 3],
     4 => ['paniers' => 0, 'capacite' => 0],
 ], [1 => 8]), 'Les deux types de capacité sont contrôlés et un dépôt vide est ignoré');
+
+verifier([
+    'affectations' => [1 => [1, 3], 2 => [2, 4, 5]],
+    'depotsNonAffectes' => [6 => 'Aucun véhicule ne dispose encore de suffisamment de places pour ce dépôt.'],
+], $repartition->calculer([
+    1 => ['paniers' => 6, 'capacite' => 6],
+    2 => ['paniers' => 5, 'capacite' => 5],
+    3 => ['paniers' => 3, 'capacite' => 3],
+    4 => ['paniers' => 2, 'capacite' => 2],
+    5 => ['paniers' => 2, 'capacite' => 2],
+    6 => ['paniers' => 2, 'capacite' => 2],
+], [1 => 10, 2 => 10]), 'La méthode signale le dépôt restant même si les capacités totales suffisent');
