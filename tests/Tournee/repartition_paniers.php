@@ -57,3 +57,24 @@ verifier([
     5 => ['paniers' => 2, 'capacite' => 2],
     6 => ['paniers' => 2, 'capacite' => 2],
 ], [1 => 10, 2 => 10]), 'La méthode signale le dépôt restant même si les capacités totales suffisent');
+
+verifier([
+    'affectations' => [],
+    'depotsNonAffectes' => [1 => 'Aucun véhicule ne dispose encore de suffisamment de places pour ce dépôt.'],
+], $repartition->calculer([1 => ['paniers' => 1, 'capacite' => 1]], []), 'Une flotte vide est signalée');
+
+$quantiteRefusee = false;
+try {
+    $repartition->calculer([1 => ['paniers' => -1, 'capacite' => 5]], [1 => 5]);
+} catch (InvalidArgumentException) {
+    $quantiteRefusee = true;
+}
+verifier(true, $quantiteRefusee, 'Une quantité négative est refusée');
+
+$formatRefuse = false;
+try {
+    $repartition->calculer([1 => new stdClass()], [1 => 5]);
+} catch (InvalidArgumentException) {
+    $formatRefuse = true;
+}
+verifier(true, $formatRefuse, 'Un dépôt de format invalide est refusé');
