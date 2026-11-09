@@ -51,7 +51,12 @@
             </table>
 
             {% if depotsNonAffectes %}
-                <p>Certains dépôts restent sans affectation.</p>
+                <h2>Dépôts sans affectation</h2>
+                <ul>
+                    {% for id, raison in depotsNonAffectes %}
+                        <li>Dépôt {{ id }} : {{ raison }}</li>
+                    {% endfor %}
+                </ul>
             {% endif %}
         {% endif %}
     </main>
