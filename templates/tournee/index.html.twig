@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <main>
+        <p><a href="{{ path('app_home') }}">Retour à l’accueil</a></p>
+        <h1>Organisation des tournées</h1>
+        <p>Les valeurs proposées sont fictives.</p>
+
+        <form method="post" action="{{ path('app_tournees') }}">
+            <p>
+                <label for="depart">Lieu de chargement</label><br>
+                <small id="format-depart">Latitude et longitude séparées par un point-virgule. Utilisez un point pour les décimales.</small><br>
+                <input id="depart" name="depart" value="{{ formulaire.depart }}" aria-describedby="format-depart" required>
+            </p>
+            <p>
+                <label for="depots">Dépôts à livrer</label><br>
+                <small id="format-depots">Un dépôt par ligne : identifiant ; paniers à livrer ; capacité ; latitude ; longitude.</small><br>
+                <textarea id="depots" name="depots" rows="5" cols="45" aria-describedby="format-depots" required>{{ formulaire.depots }}</textarea>
+            </p>
+            <p>
+                <label for="vehicules">Camionnettes disponibles</label><br>
+                <small id="format-vehicules">Un véhicule par ligne : identifiant ; capacité en paniers.</small><br>
+                <textarea id="vehicules" name="vehicules" rows="3" cols="45" aria-describedby="format-vehicules">{{ formulaire.vehicules }}</textarea>
+            </p>
+            <button type="submit" disabled>Calculer les tournées</button>
+        </form>
+    </main>
+{% endblock %}
