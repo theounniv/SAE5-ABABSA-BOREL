@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Tournee\OrdonnerDepots;
 use App\Tournee\RepartitionPaniers;
 use InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -14,7 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class TourneeController extends AbstractController
 {
     #[Route('/tournees', name: 'app_tournees', methods: ['GET', 'POST'])]
-    public function index(Request $request, RepartitionPaniers $repartition): Response
+    public function index(Request $request, RepartitionPaniers $repartition, OrdonnerDepots $ordre): Response
     {
         $formulaire = [
             'depart' => '48.174;6.449',
@@ -31,8 +32,9 @@ final class TourneeController extends AbstractController
             }
 
             try {
-                $this->position(explode(';', $formulaire['depart']), 'Lieu de chargement');
+                $depart = $this->position(explode(';', $formulaire['depart']), 'Lieu de chargement');
                 $depots = [];
+                $positions = [];
                 foreach ($this->lignes($formulaire['depots'], 5, 'Dépôt') as $numero => $champs) {
                     $libelle = "Dépôt, ligne $numero";
                     $id = $this->entier($champs[0], 1, $libelle);
@@ -44,7 +46,7 @@ final class TourneeController extends AbstractController
                         'paniers' => $this->entier($champs[1], 0, $libelle),
                         'capacite' => $this->entier($champs[2], 0, $libelle),
                     ];
-                    $this->position(array_slice($champs, 3), $libelle);
+                    $positions[$id] = $this->position(array_slice($champs, 3), $libelle);
                 }
 
                 if ($depots === []) {
@@ -65,10 +67,10 @@ final class TourneeController extends AbstractController
                 $resultat = $repartition->calculer($depots, $vehicules);
                 $depotsNonAffectes = $resultat['depotsNonAffectes'];
                 foreach ($resultat['affectations'] as $id => $depotsAffectes) {
-                    $tournees[$id] = [
-                        'paniers' => array_sum(array_map(static fn (int $depot): int => $depots[$depot]['paniers'], $depotsAffectes)),
-                        'capacite' => $vehicules[$id],
-                    ];
+                    $tournee = $ordre->calculer($depart, $depotsAffectes, $positions);
+                    $tournee['paniers'] = array_sum(array_map(static fn (int $depot): int => $depots[$depot]['paniers'], $depotsAffectes));
+                    $tournee['capacite'] = $vehicules[$id];
+                    $tournees[$id] = $tournee;
                 }
             } catch (InvalidArgumentException $exception) {
                 $erreur = $exception->getMessage();

@@ -4,7 +4,7 @@
     <main>
         <p><a href="{{ path('app_home') }}">Retour à l’accueil</a></p>
         <h1>Organisation des tournées</h1>
-        <p>Calculez une répartition des paniers entre véhicules. Les valeurs proposées sont fictives.</p>
+        <p>Calculez une répartition des paniers et un ordre de visite des dépôts. Les valeurs proposées sont fictives.</p>
 
         {% if erreur %}
             <p role="alert">{{ erreur }}</p>
@@ -31,11 +31,14 @@
 
         {% if calcule %}
             <h2>Répartition par véhicule</h2>
+            <p>Les distances sont estimées à vol d’oiseau et incluent le retour au lieu de chargement.</p>
             <table>
                 <thead>
                     <tr>
                         <th scope="col">Véhicule</th>
                         <th scope="col">Paniers / capacité</th>
+                        <th scope="col">Dépôts dans l’ordre de visite</th>
+                        <th scope="col">Distance estimée</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,9 +46,11 @@
                         <tr>
                             <th scope="row">{{ id }}</th>
                             <td>{{ tournee.paniers }} / {{ tournee.capacite }}</td>
+                            <td>{{ tournee.depots is empty ? 'Aucun' : tournee.depots|join(', ') }}</td>
+                            <td>{{ tournee.distanceKm|number_format(2, ',', ' ') }} km</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="2">Aucun véhicule disponible.</td></tr>
+                        <tr><td colspan="4">Aucun véhicule disponible.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
