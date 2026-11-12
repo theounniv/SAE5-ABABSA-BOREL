@@ -12,20 +12,52 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
       - name: Construire l’application
-        run: docker compose build app
+        run: |
+          docker compose config --quiet
+          docker compose build app
 
       - name: Tester la répartition des paniers
         run: >-
           docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
           app php tests/Tournee/repartition_paniers.php
 
+      - name: Tester l’ordre des dépôts et les échanges de tournée
+        run: >-
+          docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
+          app php tests/Tournee/organisation_tournees.php
+
+      - name: Tester les règles du calendrier de livraison
+        run: >-
+          docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
+          app php tests/Calendrier/calendrier_livraisons.php
+
+      - name: Démarrer l’application
+        run: |
+          docker compose up -d app
+          curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 \
+            http://127.0.0.1:8000/ > /dev/null
+
+      - name: Tester les parcours HTTP
+        run: >-
+          docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
+          --env BASE_URL=http://app:8000 app php tests/smoke.php
+
       - name: Vérifier les dépendances PHP
         run: >-
           docker run --rm --volume "${PWD}:/app:ro" --workdir /app
-          composer:2 audit --locked --no-dev --no-interaction
+          composer:2@sha256:5190d9b445add2fa26090108273cb1ef1e1af98175201c737b85b3c4f90fbf7c audit --locked --no-dev --no-interaction
+
+      - name: Consulter les journaux en cas d’échec
+        if: failure()
+        run: docker compose logs --no-color app
+
+      - name: Arrêter l’application
+        if: always()
+        run: docker compose down --remove-orphans

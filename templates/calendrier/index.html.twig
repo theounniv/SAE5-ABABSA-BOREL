@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <main>
+        <h1>Calendrier de livraison</h1>
+        <p><a href="{{ path('app_home') }}">Accueil</a></p>
+
+        {% if erreur %}
+            <p role="alert">{{ erreur }}</p>
+        {% endif %}
+
+        <form method="post">
+            <p><label for="tournee">Tournée</label> <input id="tournee" name="tournee" value="{{ formulaire.tournee }}" required></p>
+            <p><label for="annee">Année</label> <input id="annee" name="annee" type="number" min="1583" max="9999" value="{{ formulaire.annee }}" required></p>
+            <p><label for="nombre">Nombre de livraisons</label> <input id="nombre" name="nombre" type="number" min="1" max="53" value="{{ formulaire.nombre }}" required></p>
+            <p>
+                <label for="jour">Jour de livraison</label>
+                <select id="jour" name="jour">
+                    {% for numero, jour in {1: 'Lundi', 2: 'Mardi', 3: 'Mercredi', 4: 'Jeudi', 5: 'Vendredi'} %}
+                        <option value="{{ numero }}"{% if numero == formulaire.jour %} selected{% endif %}>{{ jour }}</option>
+                    {% endfor %}
+                </select>
+            </p>
+            <p>
+                <label for="parite">Semaine de départ</label>
+                <select id="parite" name="parite">
+                    <option value="1"{% if formulaire.parite == '1' %} selected{% endif %}>Impaire</option>
+                    <option value="0"{% if formulaire.parite == '0' %} selected{% endif %}>Paire</option>
+                </select>
+            </p>
+            <p><label for="fermetures">Semaines ISO fermées (par exemple 1, 31, 32)</label> <input id="fermetures" name="fermetures" value="{{ formulaire.fermetures }}"></p>
+            <button type="submit" name="action" value="generer">Générer le calendrier</button>
+
+            {% if plan %}
+                <h2>{{ formulaire.tournee }}</h2>
+                <p>{{ plan|length }} livraisons placées sur {{ formulaire.nombre }} demandées.</p>
+                {% if valide %}
+                    <p role="status">Les dates de livraison sont valides.</p>
+                {% endif %}
+                <table>
+                    <thead><tr><th scope="col">Date prévue</th><th scope="col">Date retenue</th></tr></thead>
+                    <tbody>
+                        {% for livraison in plan %}
+                            <tr>
+                                <td>{{ livraison.prevue|date('d/m/Y') }}</td>
+                                <td><input type="date" name="dates[]" value="{{ livraison.date }}" aria-label="Date retenue pour la livraison du {{ livraison.prevue|date('d/m/Y') }}" required></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="submit" name="action" value="verifier">Vérifier les dates</button>
+            {% endif %}
+        </form>
+    </main>
+{% endblock %}
