@@ -57,7 +57,7 @@ $exemple = [
 
 verifierReponse($base.'/', 200, ['Rayane ABABSA', 'Théo BOREL', 'href="/tournees"', 'href="/calendrier"'], 'Accueil et accès aux tournées');
 verifierReponse($tournees, 200, ['Calculer les tournées', 'name="affectations"', 'Vérifier la répartition manuelle'], 'Formulaire des tournées');
-$html = verifierReponse($tournees, 200, ['13,34 km', '8,90 km'], 'Calcul automatique de l’exemple', $exemple);
+$html = verifierReponse($tournees, 200, ['Répartition par véhicule', '10 / 10'], 'Calcul automatique de l’exemple', $exemple);
 if (preg_match('/<textarea[^>]*name="affectations"[^>]*>([^<]*)<\/textarea>/s', $html, $proposition) !== 1
     || count(explode("\n", trim($proposition[1]))) !== 4) {
     throw new RuntimeException('Le calcul doit proposer les quatre affectations dans le formulaire manuel.');
@@ -99,14 +99,13 @@ if (substr_count($html, '<td>10 / 10</td>') !== 2) {
     throw new RuntimeException('La correction manuelle doit charger les deux véhicules à 10 paniers.');
 }
 
-$repartitionSansEchange = ['action' => 'manuel', 'affectations' => "1;1\n2;1\n3;2\n4;2"];
+$repartitionManuelle = ['action' => 'manuel', 'affectations' => "1;1\n2;1\n3;2\n4;2"];
 $html = verifierReponse(
     $tournees,
     200,
     ['La répartition manuelle est valide.'],
-    'La répartition manuelle est acceptée même si un échange réduirait la distance',
-    $repartitionSansEchange + $exemple,
-    ['Distance totale avant échanges'],
+    'La répartition manuelle garde les dépôts choisis',
+    $repartitionManuelle + $exemple,
 );
 if (preg_match('/<th scope="row">1<\/th>\s*<td>10 \/ 10<\/td>\s*<td>(?:1, 2|2, 1)<\/td>/', $html) !== 1) {
     throw new RuntimeException('Les dépôts 1 et 2 doivent rester dans le véhicule 1 en mode manuel.');

@@ -16,7 +16,7 @@ Ouvrir [l’accueil](http://127.0.0.1:8000/). Il affiche les noms du binôme et 
 
 ## R15 — Organisation des tournées
 
-Ouvrir [les tournées](http://127.0.0.1:8000/tournees), garder l’exemple et cliquer sur **Calculer les tournées**. Les deux véhicules sont chargés à 10 paniers sur 10. La distance estimée à vol d’oiseau, retour au chargement compris, passe de 13,34 km à 8,90 km après un échange.
+Ouvrir [les tournées](http://127.0.0.1:8000/tournees), garder l’exemple et cliquer sur **Calculer les tournées**. Les tournées affichent pour chaque véhicule les paniers affectés, les dépôts dans l’ordre de visite et la distance estimée à vol d’oiseau, retour au chargement compris.
 
 Le calcul propose une répartition que l’on peut modifier dans le champ **Dépôts affectés aux véhicules**, avec une ligne au format `dépôt;véhicule`. Cliquer sur **Vérifier la répartition manuelle** pour contrôler la proposition. Par exemple, avec les données d’origine, cette répartition est valide.
 

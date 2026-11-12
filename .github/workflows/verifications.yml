@@ -28,7 +28,7 @@ jobs:
           docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
           app php tests/Tournee/repartition_paniers.php
 
-      - name: Tester l’ordre des dépôts et les échanges de tournée
+      - name: Tester l’ordre des dépôts
         run: >-
           docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
           app php tests/Tournee/organisation_tournees.php
@@ -41,7 +41,7 @@ jobs:
       - name: Démarrer l’application
         run: |
           docker compose up -d app
-          curl --fail --silent --show-error --retry 10 --retry-connrefused --retry-delay 1 \
+          curl --fail --silent --show-error --retry 15 --retry-all-errors --retry-delay 1 --max-time 5 --retry-max-time 30 \
             http://127.0.0.1:8000/ > /dev/null
 
       - name: Tester les parcours HTTP
