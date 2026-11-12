@@ -21,12 +21,15 @@ final class TourneeController extends AbstractController
             'depart' => '48.174;6.449',
             'depots' => "1;7;8;48.191;6.459\n2;5;8;48.147;6.439\n3;3;4;48.160;6.418",
             'vehicules' => "1;10\n2;8",
+            'affectations' => '',
         ];
         $tournees = [];
         $depotsNonAffectes = [];
         $erreur = null;
+        $modeManuel = false;
 
         if ($request->isMethod('POST')) {
+            $modeManuel = $request->request->getString('action') === 'manuel';
             foreach (array_keys($formulaire) as $champ) {
                 $formulaire[$champ] = $request->request->getString($champ);
             }
@@ -64,13 +67,34 @@ final class TourneeController extends AbstractController
                     $vehicules[$id] = $this->entier($champs[1], 1, $libelle);
                 }
 
-                $resultat = $repartition->calculer($depots, $vehicules);
+                $affectationsManuelles = null;
+                if ($modeManuel) {
+                    $affectationsManuelles = [];
+                    foreach ($this->lignes($formulaire['affectations'], 2, 'Affectation') as $numero => [$depot, $vehicule]) {
+                        $libelle = "Affectation, ligne $numero";
+                        $affectationsManuelles[] = [
+                            'depot' => $this->entier($depot, 1, $libelle),
+                            'vehicule' => $this->entier($vehicule, 1, $libelle),
+                        ];
+                    }
+                }
+
+                $resultat = $repartition->calculer($depots, $vehicules, $affectationsManuelles);
                 $depotsNonAffectes = $resultat['depotsNonAffectes'];
                 foreach ($resultat['affectations'] as $id => $depotsAffectes) {
                     $tournee = $ordre->calculer($depart, $depotsAffectes, $positions);
                     $tournee['paniers'] = array_sum(array_map(static fn (int $depot): int => $depots[$depot]['paniers'], $depotsAffectes));
                     $tournee['capacite'] = $vehicules[$id];
                     $tournees[$id] = $tournee;
+                }
+                if (!$modeManuel) {
+                    $affectations = [];
+                    foreach ($tournees as $idVehicule => $tournee) {
+                        foreach ($tournee['depots'] as $idDepot) {
+                            $affectations[] = "$idDepot;$idVehicule";
+                        }
+                    }
+                    $formulaire['affectations'] = implode("\n", $affectations);
                 }
             } catch (InvalidArgumentException $exception) {
                 $erreur = $exception->getMessage();
@@ -81,6 +105,7 @@ final class TourneeController extends AbstractController
             'formulaire' => $formulaire,
             'calcule' => $request->isMethod('POST') && $erreur === null,
             'tournees' => $tournees,
+            'modeManuel' => $modeManuel,
             'depotsNonAffectes' => $depotsNonAffectes,
             'erreur' => $erreur,
         ], new Response(status: $erreur === null ? 200 : 422));

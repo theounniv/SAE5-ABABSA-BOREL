@@ -27,11 +27,24 @@
                 <textarea id="vehicules" name="vehicules" rows="3" cols="45" aria-describedby="format-vehicules">{{ formulaire.vehicules }}</textarea>
             </p>
             <button type="submit">Calculer les tournées</button>
+
+            <fieldset>
+                <legend>Répartition manuelle</legend>
+                <p>
+                    <label for="affectations">Dépôts affectés aux véhicules</label><br>
+                    <small id="format-affectations">Un dépôt par ligne au format <code>dépôt;véhicule</code>. Après un calcul, la proposition apparaît ici et peut être modifiée.</small><br>
+                    <textarea id="affectations" name="affectations" rows="5" cols="45" aria-describedby="format-affectations">{{ formulaire.affectations }}</textarea>
+                </p>
+                <button type="submit" name="action" value="manuel">Vérifier la répartition manuelle</button>
+            </fieldset>
         </form>
 
         {% if calcule %}
             <h2>Répartition par véhicule</h2>
             <p>Les distances sont estimées à vol d’oiseau et incluent le retour au lieu de chargement.</p>
+            {% if modeManuel %}
+                <p role="status">La répartition manuelle est valide.</p>
+            {% endif %}
             <table>
                 <thead>
                     <tr>

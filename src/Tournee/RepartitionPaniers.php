@@ -13,9 +13,10 @@ final class RepartitionPaniers
      *
      * @param array<int, array{paniers: int, capacite: int}> $depots
      * @param array<int, int> $capacitesVehicules
+     * @param list<array{depot: int, vehicule: int}>|null $affectationsManuelles
      * @return array{affectations: array<int, list<int>>, depotsNonAffectes: array<int, string>}
      */
-    public function calculer(array $depots, array $capacitesVehicules): array
+    public function calculer(array $depots, array $capacitesVehicules, ?array $affectationsManuelles = null): array
     {
         ksort($depots);
         ksort($capacitesVehicules);
@@ -44,10 +45,21 @@ final class RepartitionPaniers
             }
 
             if ($paniers > $capacite) {
+                if ($affectationsManuelles !== null) {
+                    throw new InvalidArgumentException("Le nombre de paniers dépasse la capacité du dépôt $idDepot.");
+                }
+
                 $depotsNonAffectes[$idDepot] = 'Le nombre de paniers dépasse la capacité du dépôt.';
             } elseif ($paniers > 0) {
                 $paniersParDepot[$idDepot] = $paniers;
             }
+        }
+
+        if ($affectationsManuelles !== null) {
+            return [
+                'affectations' => $this->repartirManuellement($affectationsManuelles, $paniersParDepot, $placesRestantes, $affectations),
+                'depotsNonAffectes' => [],
+            ];
         }
 
         arsort($paniersParDepot);
@@ -76,5 +88,48 @@ final class RepartitionPaniers
             'affectations' => $affectations,
             'depotsNonAffectes' => $depotsNonAffectes,
         ];
+    }
+
+    /**
+     * @param list<array{depot: int, vehicule: int}> $correction
+     * @param array<int, int> $paniersParDepot
+     * @param array<int, int> $placesRestantes
+     * @param array<int, list<int>> $affectations
+     * @return array<int, list<int>>
+     */
+    private function repartirManuellement(array $correction, array $paniersParDepot, array $placesRestantes, array $affectations): array
+    {
+        $depotsAffectes = [];
+        foreach ($correction as $ligne) {
+            if (!is_array($ligne) || !is_int($ligne['depot'] ?? null) || !is_int($ligne['vehicule'] ?? null)) {
+                throw new InvalidArgumentException('Chaque affectation manuelle doit indiquer un dépôt et un véhicule.');
+            }
+
+            $depot = $ligne['depot'];
+            $vehicule = $ligne['vehicule'];
+            if (!isset($paniersParDepot[$depot])) {
+                throw new InvalidArgumentException("Le dépôt $depot est inconnu ou sans panier à livrer.");
+            }
+            if (isset($depotsAffectes[$depot])) {
+                throw new InvalidArgumentException("Le dépôt $depot est affecté plusieurs fois.");
+            }
+            if (!isset($placesRestantes[$vehicule])) {
+                throw new InvalidArgumentException("Le véhicule $vehicule est inconnu.");
+            }
+            if ($paniersParDepot[$depot] > $placesRestantes[$vehicule]) {
+                throw new InvalidArgumentException("La capacité du véhicule $vehicule est dépassée.");
+            }
+
+            $affectations[$vehicule][] = $depot;
+            $placesRestantes[$vehicule] -= $paniersParDepot[$depot];
+            $depotsAffectes[$depot] = true;
+        }
+
+        $manquants = array_diff_key($paniersParDepot, $depotsAffectes);
+        if ($manquants !== []) {
+            throw new InvalidArgumentException('Dépôts sans affectation dans la correction : '.implode(', ', array_keys($manquants)).'.');
+        }
+
+        return $affectations;
     }
 }
