@@ -1,0 +1,31 @@
+name: Vérifications du projet
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Construire l’application
+        run: docker compose build app
+
+      - name: Tester la répartition des paniers
+        run: >-
+          docker compose run --rm --no-deps --volume ./tests:/app/tests:ro
+          app php tests/Tournee/repartition_paniers.php
+
+      - name: Vérifier les dépendances PHP
+        run: >-
+          docker run --rm --volume "${PWD}:/app:ro" --workdir /app
+          composer:2 audit --locked --no-dev --no-interaction
