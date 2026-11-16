@@ -14,6 +14,10 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class TourneeController extends AbstractController
 {
+    private const NOMBRE_CHAMPS_DEPOT = 5;
+    private const NOMBRE_CHAMPS_VEHICULE = 2;
+    private const NOMBRE_CHAMPS_AFFECTATION = 2;
+
     #[Route('/tournees', name: 'app_tournees', methods: ['GET', 'POST'])]
     public function index(Request $request, RepartitionPaniers $repartition, OrdonnerDepots $ordre): Response
     {
@@ -27,8 +31,9 @@ final class TourneeController extends AbstractController
         $depotsNonAffectes = [];
         $erreur = null;
         $modeManuel = false;
+        $requetePost = $request->isMethod('POST');
 
-        if ($request->isMethod('POST')) {
+        if ($requetePost) {
             $modeManuel = $request->request->getString('action') === 'manuel';
             foreach (array_keys($formulaire) as $champ) {
                 $formulaire[$champ] = $request->request->getString($champ);
@@ -38,18 +43,18 @@ final class TourneeController extends AbstractController
                 $depart = $this->position(explode(';', $formulaire['depart']), 'Lieu de chargement');
                 $depots = [];
                 $positions = [];
-                foreach ($this->lignes($formulaire['depots'], 5, 'Dépôt') as $numero => $champs) {
+                foreach ($this->lignes($formulaire['depots'], self::NOMBRE_CHAMPS_DEPOT, 'Dépôt') as $numero => $champs) {
                     $libelle = "Dépôt, ligne $numero";
-                    $id = $this->entier($champs[0], 1, $libelle);
-                    if (isset($depots[$id])) {
-                        throw new InvalidArgumentException("$libelle : l’identifiant $id est déjà utilisé.");
+                    $idDepot = $this->entier($champs[0], 1, $libelle);
+                    if (isset($depots[$idDepot])) {
+                        throw new InvalidArgumentException("$libelle : l’identifiant $idDepot est déjà utilisé.");
                     }
 
-                    $depots[$id] = [
+                    $depots[$idDepot] = [
                         'paniers' => $this->entier($champs[1], 0, $libelle),
                         'capacite' => $this->entier($champs[2], 0, $libelle),
                     ];
-                    $positions[$id] = $this->position(array_slice($champs, 3), $libelle);
+                    $positions[$idDepot] = $this->position(array_slice($champs, 3), $libelle);
                 }
 
                 if ($depots === []) {
@@ -57,20 +62,20 @@ final class TourneeController extends AbstractController
                 }
 
                 $vehicules = [];
-                foreach ($this->lignes($formulaire['vehicules'], 2, 'Véhicule') as $numero => $champs) {
+                foreach ($this->lignes($formulaire['vehicules'], self::NOMBRE_CHAMPS_VEHICULE, 'Véhicule') as $numero => $champs) {
                     $libelle = "Véhicule, ligne $numero";
-                    $id = $this->entier($champs[0], 1, $libelle);
-                    if (isset($vehicules[$id])) {
-                        throw new InvalidArgumentException("$libelle : l’identifiant $id est déjà utilisé.");
+                    $idVehicule = $this->entier($champs[0], 1, $libelle);
+                    if (isset($vehicules[$idVehicule])) {
+                        throw new InvalidArgumentException("$libelle : l’identifiant $idVehicule est déjà utilisé.");
                     }
 
-                    $vehicules[$id] = $this->entier($champs[1], 1, $libelle);
+                    $vehicules[$idVehicule] = $this->entier($champs[1], 1, $libelle);
                 }
 
                 $affectationsManuelles = null;
                 if ($modeManuel) {
                     $affectationsManuelles = [];
-                    foreach ($this->lignes($formulaire['affectations'], 2, 'Affectation') as $numero => [$depot, $vehicule]) {
+                    foreach ($this->lignes($formulaire['affectations'], self::NOMBRE_CHAMPS_AFFECTATION, 'Affectation') as $numero => [$depot, $vehicule]) {
                         $libelle = "Affectation, ligne $numero";
                         $affectationsManuelles[] = [
                             'depot' => $this->entier($depot, 1, $libelle),
@@ -81,20 +86,14 @@ final class TourneeController extends AbstractController
 
                 $resultat = $repartition->calculer($depots, $vehicules, $affectationsManuelles);
                 $depotsNonAffectes = $resultat['depotsNonAffectes'];
-                foreach ($resultat['affectations'] as $id => $depotsAffectes) {
+                foreach ($resultat['affectations'] as $idVehicule => $depotsAffectes) {
                     $tournee = $ordre->calculer($depart, $depotsAffectes, $positions);
                     $tournee['paniers'] = array_sum(array_map(static fn (int $depot): int => $depots[$depot]['paniers'], $depotsAffectes));
-                    $tournee['capacite'] = $vehicules[$id];
-                    $tournees[$id] = $tournee;
+                    $tournee['capacite'] = $vehicules[$idVehicule];
+                    $tournees[$idVehicule] = $tournee;
                 }
                 if (!$modeManuel) {
-                    $affectations = [];
-                    foreach ($tournees as $idVehicule => $tournee) {
-                        foreach ($tournee['depots'] as $idDepot) {
-                            $affectations[] = "$idDepot;$idVehicule";
-                        }
-                    }
-                    $formulaire['affectations'] = implode("\n", $affectations);
+                    $formulaire['affectations'] = $this->texteAffectations($tournees);
                 }
             } catch (InvalidArgumentException $exception) {
                 $erreur = $exception->getMessage();
@@ -103,12 +102,29 @@ final class TourneeController extends AbstractController
 
         return $this->render('tournee/index.html.twig', [
             'formulaire' => $formulaire,
-            'calcule' => $request->isMethod('POST') && $erreur === null,
+            'calcule' => $requetePost && $erreur === null,
             'tournees' => $tournees,
             'modeManuel' => $modeManuel,
             'depotsNonAffectes' => $depotsNonAffectes,
             'erreur' => $erreur,
         ], new Response(status: $erreur === null ? 200 : 422));
+    }
+
+    /**
+     * Préremplit le champ de correction manuelle au format dépôt;véhicule.
+     *
+     * @param array<int, array{depots: list<int>}> $tournees
+     */
+    private function texteAffectations(array $tournees): string
+    {
+        $affectations = [];
+        foreach ($tournees as $idVehicule => $tournee) {
+            foreach ($tournee['depots'] as $idDepot) {
+                $affectations[] = "$idDepot;$idVehicule";
+            }
+        }
+
+        return implode("\n", $affectations);
     }
 
     /** @return iterable<int, list<string>> */
