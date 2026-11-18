@@ -1,4 +1,7 @@
 services:
   app:
+    environment:
+      - APP_SECRET
+      - SAE5_R17_DEMO_PASSWORD_HASH
     ports:
       - "127.0.0.1:8000:8000"
