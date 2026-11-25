@@ -4,15 +4,13 @@ Rayane ABABSA et Théo BOREL · BUT 3 Informatique · 2026–2027
 
 ## Démarrer la démonstration locale
 
-Le code est disponible sur la [branche `rendu-15/repartition-paniers`](https://github.com/theounniv/SAE5-ABABSA-BOREL/tree/rendu-15/repartition-paniers). Installer Git et Docker avec Docker Compose v2, démarrer Docker et libérer le port local 8000.
+Depuis la racine du dépôt, démarrer Docker avec Docker Compose v2 et vérifier que le port local 8000 est libre.
 
 ```sh
-git clone --branch rendu-15/repartition-paniers https://github.com/theounniv/SAE5-ABABSA-BOREL.git
-cd SAE5-ABABSA-BOREL
 docker compose up --build -d app
 ```
 
-Ouvrir [l’accueil](http://127.0.0.1:8000/). Il affiche les noms du binôme et les liens vers les deux modules. Cette version utilise des données de démonstration et fonctionne localement, sans PostgreSQL ni authentification. Les résultats de formulaire ne sont pas conservés après la fermeture de la page.
+Ouvrir [l’accueil](http://127.0.0.1:8000/). Les tournées et le calendrier restent accessibles sans connexion et utilisent des données de démonstration. Les résultats de formulaire ne sont pas conservés après la fermeture de la page.
 
 ## R15 — Organisation des tournées
 
@@ -35,9 +33,27 @@ Ouvrir [le calendrier](http://127.0.0.1:8000/calendrier). Par exemple, choisir l
 
 Le calendrier tient compte des jours fériés et des semaines fermées. Pour déplacer une livraison, modifier une date dans la colonne **Date retenue** puis cliquer sur **Vérifier les dates**. La colonne **Date prévue** indique le point de départ de la vérification.
 
+## R17 — Connexion de démonstration
+
+Le compte `adherent@example.test` est disponible en mode `dev`. Dans PowerShell 7, choisir un mot de passe réservé à cette démonstration et démarrer l’application avec son hachage.
+
+```powershell
+docker compose build app
+$env:APP_SECRET = (docker compose run --rm --no-deps -T app php -r 'echo bin2hex(random_bytes(32));').Trim()
+$env:SAE5_R17_DEMO_PASSWORD = Read-Host 'Mot de passe de démonstration' -MaskInput
+$env:SAE5_R17_DEMO_PASSWORD_HASH = (docker compose run --rm --no-deps -T --env SAE5_R17_DEMO_PASSWORD app php -r 'echo password_hash(getenv($argv[1]), PASSWORD_DEFAULT);' SAE5_R17_DEMO_PASSWORD).Trim()
+docker compose up -d app
+```
+
+Depuis [l’accueil](http://127.0.0.1:8000/), cliquer sur **Connexion adhérent** et saisir l’adresse de démonstration et le mot de passe choisi. Dans le même terminal, lancer le test du parcours.
+
+```powershell
+docker compose run --rm --no-deps -T --volume "./tests:/app/tests:ro" --env BASE_URL=http://app:8000 --env SAE5_R17_DEMO_PASSWORD app php tests/Securite/connexion_adherent.php
+```
+
 ## Lancer les vérifications
 
-Depuis la racine du dépôt, avec l’application démarrée par la commande précédente, lancer les quatre scripts suivants. Docker monte le dossier `tests` en lecture seule et utilise les dépendances déjà installées dans l’image.
+Depuis la racine du dépôt, laisser l’application démarrée et lancer les quatre scripts suivants. Docker monte le dossier `tests` en lecture seule et utilise les dépendances déjà installées dans l’image.
 
 ```sh
 docker compose run --rm --no-deps --volume "./tests:/app/tests:ro" app php tests/Tournee/repartition_paniers.php
