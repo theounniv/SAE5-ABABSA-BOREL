@@ -51,6 +51,10 @@ Depuis [l’accueil](http://127.0.0.1:8000/), cliquer sur **Connexion adhérent*
 docker compose run --rm --no-deps -T --volume "./tests:/app/tests:ro" --env BASE_URL=http://app:8000 --env SAE5_R17_DEMO_PASSWORD app php tests/Securite/connexion_adherent.php
 ```
 
+### Enregistrer une passkey de démonstration
+
+Se connecter depuis [localhost](http://localhost:8000/connexion), puis cliquer sur **Ajouter une passkey** dans l’espace adhérent. Le volume Docker `passkeys` conserve une clé publique par compte de démonstration. À ce stade, la connexion utilise encore le mot de passe.
+
 ## Lancer les vérifications
 
 Depuis la racine du dépôt, laisser l’application démarrée et lancer les quatre scripts suivants. Docker monte le dossier `tests` en lecture seule et utilise les dépendances déjà installées dans l’image.

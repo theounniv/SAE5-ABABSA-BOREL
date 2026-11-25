@@ -4,5 +4,12 @@
     <main>
         <h1>Espace adhérent</h1>
         <p>Connecté avec l’adresse {{ app.user.userIdentifier }}.</p>
+        {% if app.environment == 'dev' and app.request.host == 'localhost' %}
+            <button type="button" id="ajouter-passkey" data-options="{{ path('app_passkey_options') }}"
+                    data-enregistrement="{{ path('app_passkey_enregistrer') }}"
+                    data-csrf="{{ csrf_token('ajouter_passkey') }}">Ajouter une passkey</button>
+            <p id="resultat-passkey" role="status"></p>
+            <script src="/passkey.js" defer></script>
+        {% endif %}
     </main>
 {% endblock %}
