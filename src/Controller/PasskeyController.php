@@ -9,14 +9,16 @@ use lbuchs\WebAuthn\WebAuthn;
 use lbuchs\WebAuthn\WebAuthnException;
 use PDO;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/espace-adherent/passkey', host: 'localhost', env: 'dev')]
-#[IsGranted('ROLE_ADHERENT')]
+#[Route(host: 'localhost', env: 'dev')]
 final class PasskeyController extends AbstractController
 {
     private const ORIGINE = 'http://localhost:8000';
@@ -24,7 +26,8 @@ final class PasskeyController extends AbstractController
     private const CLE_SESSION = 'passkey.inscription';
     private const DEJA_INSCRITE = 'Une passkey est déjà enregistrée pour ce compte.';
 
-    #[Route('/options', name: 'app_passkey_options', methods: ['POST'])]
+    #[Route('/espace-adherent/passkey/options', name: 'app_passkey_options', methods: ['POST'])]
+    #[IsGranted('ROLE_ADHERENT')]
     public function options(
         Request $requete,
         #[Autowire('%kernel.secret%')] string $secret,
@@ -55,7 +58,8 @@ final class PasskeyController extends AbstractController
         return new JsonResponse($options->publicKey, headers: ['Cache-Control' => 'no-store']);
     }
 
-    #[Route('', name: 'app_passkey_enregistrer', methods: ['POST'])]
+    #[Route('/espace-adherent/passkey', name: 'app_passkey_enregistrer', methods: ['POST'])]
+    #[IsGranted('ROLE_ADHERENT')]
     public function enregistrer(Request $requete, #[Autowire('%kernel.project_dir%')] string $projet): JsonResponse
     {
         if (!$this->isCsrfTokenValid('ajouter_passkey', $requete->headers->get('X-CSRF-Token'))) {
@@ -102,6 +106,75 @@ final class PasskeyController extends AbstractController
         }
 
         return $this->json(['enregistree' => true], 201);
+    }
+
+    #[Route('/connexion/passkey', name: 'app_connexion_passkey_verifier', methods: ['POST'])]
+    public function verifierConnexion(
+        Request $requete,
+        Security $securite,
+        #[Autowire(service: 'security.user.provider.concrete.users_in_memory')] UserProviderInterface $utilisateurs,
+        #[Autowire('%kernel.project_dir%')] string $projet,
+    ): JsonResponse {
+        if (!$this->isCsrfTokenValid('authenticate', $requete->headers->get('X-CSRF-Token'))) {
+            return $this->json(['erreur' => 'Jeton de formulaire invalide.'], 403);
+        }
+
+        $defi = $requete->getSession()->remove('passkey.connexion');
+        if ($defi === null || $defi['expiration'] <= time()) {
+            return $this->json(['erreur' => 'Recommencez la connexion avec votre passkey.'], 400);
+        }
+
+        $refus = ['erreur' => 'Passkey non reconnue.'];
+        try {
+            $contenu = $requete->getContent();
+            if (strlen($contenu) > 32768) {
+                return $this->json($refus, 413);
+            }
+
+            $justificatif = json_decode($contenu, true, 16, JSON_THROW_ON_ERROR);
+            $identifiant = base64_encode($this->decoder($justificatif['rawId'] ?? null));
+            $reponse = $justificatif['response'] ?? null;
+            $adherent = base64_encode($this->decoder($reponse['userHandle'] ?? null));
+            $client = $this->decoder($reponse['clientDataJSON'] ?? null);
+            $contexte = json_decode($client, true, 16, JSON_THROW_ON_ERROR);
+            if (($contexte['origin'] ?? null) !== self::ORIGINE || ($contexte['crossOrigin'] ?? false) !== false) {
+                return $this->json($refus, 401);
+            }
+
+            $base = $this->base($projet);
+            $recherche = $base->prepare('SELECT email, cle_publique, compteur FROM passkeys
+                WHERE identifiant = ? AND identifiant_adherent = ?');
+            $recherche->execute([$identifiant, $adherent]);
+            $cle = $recherche->fetch(PDO::FETCH_ASSOC);
+            if ($cle === false) {
+                return $this->json($refus, 401);
+            }
+
+            $compteur = (int) $cle['compteur'];
+            $webauthn = new WebAuthn('Jardins de Cocagne', 'localhost', ['none'], true);
+            $webauthn->processGet(
+                $client,
+                $this->decoder($reponse['authenticatorData'] ?? null),
+                $this->decoder($reponse['signature'] ?? null),
+                $cle['cle_publique'],
+                $defi['defi'],
+                $compteur,
+                requireUserVerification: true,
+            );
+
+            $utilisateur = $utilisateurs->loadUserByIdentifier($cle['email']);
+            $miseAJour = $base->prepare('UPDATE passkeys SET compteur = ? WHERE identifiant = ? AND compteur = ?');
+            $miseAJour->execute([$webauthn->getSignatureCounter() ?? $compteur, $identifiant, $compteur]);
+            if ($miseAJour->rowCount() !== 1) {
+                return $this->json($refus, 401);
+            }
+
+            $securite->login($utilisateur, 'form_login', 'main');
+        } catch (JsonException|WebAuthnException|AuthenticationException) {
+            return $this->json($refus, 401);
+        }
+
+        return $this->json(['destination' => $this->generateUrl('app_espace_adherent')]);
     }
 
     private function base(string $projet): PDO
